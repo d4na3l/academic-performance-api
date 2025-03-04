@@ -124,6 +124,53 @@ class StudentPerformanceModel:
         self.pipeline = None
         self.is_trained = False
 
+    def _standardize_categorical_values(self, data: Dict[str, Any]) -> None:
+        """
+        Estandariza los valores categóricos a los valores esperados por el modelo.
+        Modifica el diccionario in-place.
+        """
+        # Estandarizar variables ordinales
+        level_map = {"bajo": "Low", "medio": "Medium", "alto": "High",
+                     "low": "Low", "medium": "Medium", "high": "High"}
+
+        for key in ["Access_to_Resources", "Parental_Involvement", "Motivation_Level", "Family_Income"]:
+            if key in data and isinstance(data[key], str):
+                data[key] = level_map.get(data[key].lower(), data[key])
+
+        # Estandarizar Peer_Influence
+        peer_mapping = {
+            "negativa": "Negative", "negative": "Negative",
+            "neutral": "Neutral", "neutra": "Neutral",
+            "positiva": "Positive", "positive": "Positive"
+        }
+        if "Peer_Influence" in data and isinstance(data["Peer_Influence"], str):
+            data["Peer_Influence"] = peer_mapping.get(
+                data["Peer_Influence"].lower(), data["Peer_Influence"])
+
+        # Estandarizar variables binarias
+        yesno_map = {"no": "No", "sí": "Yes", "si": "Yes", "yes": "Yes"}
+        for key in ["Extracurricular_Activities", "Internet_Access", "Learning_Disabilities"]:
+            if key in data and isinstance(data[key], str):
+                data[key] = yesno_map.get(data[key].lower(), data[key])
+
+        # Estandarizar School_Type
+        school_type_map = {
+            "publica": "Public", "pública": "Public", "public": "Public",
+            "privada": "Private", "private": "Private"
+        }
+        if "School_Type" in data and isinstance(data["School_Type"], str):
+            data["School_Type"] = school_type_map.get(
+                data["School_Type"].lower(), data["School_Type"])
+
+        # Estandarizar Gender
+        gender_map = {
+            "masculino": "Male", "male": "Male", "m": "Male",
+            "femenino": "Female", "female": "Female", "f": "Female"
+        }
+        if "Gender" in data and isinstance(data["Gender"], str):
+            data["Gender"] = gender_map.get(
+                data["Gender"].lower(), data["Gender"])
+
     @classmethod
     def load_from_file(cls, model_path: Optional[str] = None) -> 'StudentPerformanceModel':
         """
@@ -300,8 +347,35 @@ class StudentPerformanceModel:
     def preprocess_data(self, data: Dict[str, Any]) -> Dict[str, Any]:
         """
         Preprocesa datos de entrada y los convierte al formato esperado por el modelo.
+        Puede manejar tanto snake_case como Upper_Snake_Case en los datos de entrada.
         """
         processed_data = {}
+
+        # Verificar si los datos ya están en formato Upper_Snake_Case
+        # Si la mayoría de las claves esperadas ya están presentes, usamos directamente los datos
+        upper_snake_keys = ["Hours_Studied", "Attendance", "Sleep_Hours", "Previous_Scores",
+                            "Tutoring_Sessions", "Physical_Activity", "Access_to_Resources",
+                            "Parental_Involvement", "Motivation_Level", "Family_Income",
+                            "Peer_Influence", "Extracurricular_Activities", "Internet_Access",
+                            "Learning_Disabilities", "School_Type", "Gender"]
+
+        # Si la mayoría de las claves en Upper_Snake_Case están presentes, asumimos que los datos
+        # ya están en el formato correcto
+        if sum(1 for key in upper_snake_keys if key in data) > len(upper_snake_keys) / 2:
+            # Asegurarnos de que todos los valores son del tipo correcto
+            result = data.copy()
+
+            # Verificar y convertir valores numéricos
+            numeric_keys = ["Hours_Studied", "Attendance", "Sleep_Hours",
+                            "Previous_Scores", "Tutoring_Sessions", "Physical_Activity"]
+            for key in numeric_keys:
+                if key in result:
+                    result[key] = float(result[key])
+
+            # Verificar y estandarizar valores categóricos
+            self._standardize_categorical_values(result)
+
+            return result
 
         # Mapas para variables categóricas
         level_map = {"bajo": "Low", "medio": "Medium", "alto": "High",
@@ -309,41 +383,51 @@ class StudentPerformanceModel:
         yesno_map = {"no": "No", "sí": "Yes", "si": "Yes", "yes": "Yes"}
 
         # Variables numéricas
-        processed_data["Hours_Studied"] = float(data.get("hours_studied", 0))
-        processed_data["Attendance"] = float(data.get("attendance", 0))
-        processed_data["Sleep_Hours"] = float(data.get("sleep_hours", 0))
+        processed_data["Hours_Studied"] = float(
+            data.get("hours_studied", data.get("Hours_Studied", 0)))
+        processed_data["Attendance"] = float(
+            data.get("attendance", data.get("Attendance", 0)))
+        processed_data["Sleep_Hours"] = float(
+            data.get("sleep_hours", data.get("Sleep_Hours", 0)))
         processed_data["Previous_Scores"] = float(
-            data.get("previous_scores", 0))
+            data.get("previous_scores", data.get("Previous_Scores", 0)))
         processed_data["Tutoring_Sessions"] = float(
-            data.get("tutoring_sessions", 0))
+            data.get("tutoring_sessions", data.get("Tutoring_Sessions", 0)))
         processed_data["Physical_Activity"] = float(
-            data.get("physical_activity", 0))
+            data.get("physical_activity", data.get("Physical_Activity", 0)))
 
         # Variables ordinales
-        parental = data.get("parental_involvement", "medium").lower()
+        parental = data.get("parental_involvement", data.get(
+            "Parental_Involvement", "medium")).lower()
         processed_data["Parental_Involvement"] = level_map.get(
             parental, "Medium")
 
-        resources = data.get("access_to_resources", "medium").lower()
+        resources = data.get("access_to_resources", data.get(
+            "Access_to_Resources", "medium")).lower()
         processed_data["Access_to_Resources"] = level_map.get(
             resources, "Medium")
 
-        motivation = data.get("motivation_level", "medium").lower()
+        motivation = data.get("motivation_level", data.get(
+            "Motivation_Level", "medium")).lower()
         processed_data["Motivation_Level"] = level_map.get(
             motivation, "Medium")
 
-        income = data.get("family_income", "medium").lower()
+        income = data.get("family_income", data.get(
+            "Family_Income", "medium")).lower()
         processed_data["Family_Income"] = level_map.get(income, "Medium")
 
         # Variables binarias
-        extracurricular = data.get("extracurricular_activities", "no").lower()
+        extracurricular = data.get("extracurricular_activities", data.get(
+            "Extracurricular_Activities", "no")).lower()
         processed_data["Extracurricular_Activities"] = yesno_map.get(
             extracurricular, "No")
 
-        internet = data.get("internet_access", "no").lower()
+        internet = data.get("internet_access", data.get(
+            "Internet_Access", "no")).lower()
         processed_data["Internet_Access"] = yesno_map.get(internet, "No")
 
-        disabilities = data.get("learning_disabilities", "no").lower()
+        disabilities = data.get("learning_disabilities", data.get(
+            "Learning_Disabilities", "no")).lower()
         processed_data["Learning_Disabilities"] = yesno_map.get(
             disabilities, "No")
 
@@ -353,7 +437,8 @@ class StudentPerformanceModel:
             "neutral": "Neutral", "neutra": "Neutral",
             "positiva": "Positive", "positive": "Positive"
         }
-        peer = data.get("peer_influence", "neutral").lower()
+        peer = data.get("peer_influence", data.get(
+            "Peer_Influence", "neutral")).lower()
         processed_data["Peer_Influence"] = peer_mapping.get(peer, "Neutral")
 
         # Variables nominales
@@ -361,14 +446,15 @@ class StudentPerformanceModel:
             "publica": "Public", "pública": "Public", "public": "Public",
             "privada": "Private", "private": "Private"
         }
-        school = data.get("school_type", "public").lower()
+        school = data.get("school_type", data.get(
+            "School_Type", "public")).lower()
         processed_data["School_Type"] = school_type_map.get(school, "Public")
 
         gender_map = {
             "masculino": "Male", "male": "Male", "m": "Male",
             "femenino": "Female", "female": "Female", "f": "Female"
         }
-        gender = data.get("gender", "male").lower()
+        gender = data.get("gender", data.get("Gender", "male")).lower()
         processed_data["Gender"] = gender_map.get(gender, "Male")
 
         return processed_data
