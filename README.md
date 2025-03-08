@@ -94,15 +94,12 @@ El proyecto sigue una arquitectura modular y escalable:
 
 - Identificación de conjuntos de datos relevantes para el rendimiento académico y bienestar estudiantil
 - Limpieza y normalización de datos (manejo de valores nulos, outliers, etc.)
-- Ingeniería de características para mejorar la calidad predictiva
 - Análisis exploratorio para identificar tendencias y correlaciones iniciales
 - Preparación de conjuntos de entrenamiento y validación
 
 ### 2. Elección de modelos de Machine Learning
 
 - Evaluación de diferentes algoritmos supervisados para predicción (regresión, clasificación)
-- Selección basada en métricas de rendimiento (precisión, recall, F1-score)
-- Implementación de técnicas de validación cruzada para evaluar robustez
 - Optimización de hiperparámetros para cada modelo
 - Comparación de rendimiento entre diferentes enfoques
 
@@ -110,17 +107,13 @@ El proyecto sigue una arquitectura modular y escalable:
 
 - Predicción de rendimiento académico basado en factores comportamentales
 - Estimación de probabilidad de bajo rendimiento en exámenes
-- Detección temprana de indicadores de depresión o problemas de bienestar
 - Generación de recomendaciones personalizadas para mejora
-- Análisis de impacto de distintas intervenciones
 
 ### 4. Desarrollo de API
 
 - Implementación de endpoints RESTful para cada modelo
 - Documentación de API con especificaciones OpenAPI/Swagger
 - Validación de entradas y manejo de errores
-- Implementación de seguridad y autenticación
-- Optimización de rendimiento para solicitudes concurrentes
 
 ### 5. Implementación en módulo de prueba
 
