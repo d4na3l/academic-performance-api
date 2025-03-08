@@ -19,7 +19,9 @@ class Settings(BaseSettings):
     BACKEND_CORS_ORIGINS: List[str] = ["*"]
 
     # Rutas de archivos
-    MODEL_PATH: str = os.getenv(
+    EXAM_MODEL_PATH: str = os.getenv(
+        "MODEL_PATH", "app/models/trained/exam_score_predict_model.joblib")
+    PERFORMANCE_MODEL_PATH: str = os.getenv(
         "MODEL_PATH", "app/models/trained/student_performance_model.joblib")
 
     CSV_PATH: str = os.getenv(

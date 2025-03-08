@@ -1,6 +1,8 @@
 # app/api/api_v1/endpoints/performance/predictions.py
 
+from fastapi import Depends, Request, HTTPException, status
 from fastapi import APIRouter, HTTPException, Request, status, Body, Query, Path, Depends
+from app.models.StudentPerformanceModel import StudentPerformanceModel
 from app.schemas.student_performance_data import (
     StudentPerformanceData,
     BatchStudentData,
@@ -26,14 +28,19 @@ router = APIRouter()
 # Función auxiliar para validar modelo
 
 
-def get_model(request: Request):
-    if not hasattr(request.app.state, "model") or request.app.state.model is None:
-        logger.error("El modelo no está cargado en el estado de la aplicación")
+def get_model(request: Request) -> StudentPerformanceModel:
+    """
+    Dependencia para obtener el modelo de predicción de exámenes
+    que fue cargado al inicio de la aplicación.
+    """
+    if not hasattr(request.app.state, "models") or "performance_model" not in request.app.state.models or request.app.state.models["performance_model"] is None:
+        logger.error(
+            "El modelo de predicción de exámenes no está cargado en el estado de la aplicación")
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail="Servicio de predicción no disponible"
+            detail="Servicio de predicción no disponible. El modelo no se ha cargado correctamente."
         )
-    return request.app.state.model
+    return request.app.state.models["performance_model"]
 
 # Funciones auxiliares para interpretar predicciones
 
@@ -150,7 +157,7 @@ async def predict_performance(
     data: StudentPerformanceData = Body(...),
     include_features: bool = Query(
         False, description="Incluir información sobre características importantes"),
-    model=Depends(get_model)
+    model: StudentPerformanceModel = Depends(get_model)
 ):
     """
     Realiza una predicción básica de rendimiento estudiantil para un estudiante.
@@ -206,7 +213,7 @@ async def predict_performance(
 )
 async def predict_with_explanation(
     data: StudentPerformanceData = Body(...),
-    model=Depends(get_model)
+    model: StudentPerformanceModel = Depends(get_model)
 ):
     """
     Realiza una predicción de rendimiento estudiantil y proporciona una explicación
@@ -281,7 +288,7 @@ async def predict_with_explanation(
 )
 async def predict_with_recommendations(
     data: StudentPerformanceData = Body(...),
-    model=Depends(get_model)
+    model: StudentPerformanceModel = Depends(get_model)
 ):
     """
     Realiza una predicción de rendimiento estudiantil y proporciona recomendaciones
@@ -347,7 +354,7 @@ async def predict_performance_batch(
         True, description="Incluir categorías de rendimiento"),
     max_batch_size: int = Query(
         100, description="Tamaño máximo del lote permitido"),
-    model=Depends(get_model)
+    model: StudentPerformanceModel = Depends(get_model)
 ):
     """
     Realiza predicciones en lote para múltiples estudiantes.
@@ -441,7 +448,7 @@ async def predict_for_student(
     student_id: str = Path(..., description="ID único del estudiante"),
     data: StudentPerformanceData = Body(...,
                                         description="Datos del estudiante"),
-    model=Depends(get_model)
+    model: StudentPerformanceModel = Depends(get_model)
 ):
     """
     Realiza una predicción con recomendaciones para un estudiante específico.
