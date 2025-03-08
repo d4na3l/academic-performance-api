@@ -39,81 +39,73 @@ def validate_settings():
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    """
-    Gestiona el ciclo de vida de la aplicación:
-    1. Intenta cargar el modelo pre-entrenado
-    2. Si no existe, intenta entrenar uno nuevo con el dataset
-    3. Guarda el estado del modelo en app.state para uso en los endpoints
-    """
     logger.info(f"Iniciando {settings.PROJECT_NAME} v{settings.VERSION}")
 
     try:
-        # Validar configuración primero
+        # Validar configuración
         validate_settings()
         logger.info("Configuración validada correctamente")
 
-        # Importar el modelo
-        from app.models.StudentPerformanceModel import StudentPerformanceModel
+        app.state.models = {}  # Diccionario para almacenar los modelos
 
-        # Intentar cargar el modelo existente
+        # Cargar o entrenar modelo de StudentPerformanceFactorModel
+        from app.models.StudentPerformanceModel import StudentPerformanceModel
         try:
             logger.info(
-                f"Intentando cargar modelo desde: {settings.MODEL_PATH}")
-            model = StudentPerformanceModel.load_from_file()
-            logger.info(
-                "Modelo cargado exitosamente desde archivo pre-entrenado")
-            app.state.model = model
-
+                f"Intentando cargar performance model desde: {settings.PERFORMANCE_MODEL_PATH}")
+            performance_model = StudentPerformanceModel.load_from_file(
+                settings.PERFORMANCE_MODEL_PATH)
+            logger.info("Performance model cargado exitosamente")
         except FileNotFoundError:
-            # El modelo no existe, hay que entrenarlo con el dataset
             logger.warning(
-                f"No se encontró un modelo en {settings.MODEL_PATH}, se entrenará uno nuevo")
-
-            # Ruta completa al archivo CSV
+                f"Performance model no encontrado en {settings.PERFORMANCE_MODEL_PATH}, se entrenará uno nuevo")
             csv_path = os.path.join(
                 settings.CSV_PATH, 'StudentPerformanceFactors.csv')
-            logger.info(f"Cargando datos desde: {csv_path}")
-
             if not os.path.exists(csv_path):
                 raise FileNotFoundError(
                     f"No se encontró el archivo de datos: {csv_path}")
-
-            # Cargar dataset
-            try:
-                df = pd.read_csv(csv_path)
-                logger.info(
-                    f"Dataset cargado correctamente con {len(df)} registros")
-            except Exception as e:
-                raise Exception(f"Error al cargar el archivo CSV: {str(e)}")
-
-            # Entrenar modelo
-            logger.info("Entrenando nuevo modelo...")
-            model, evaluation = StudentPerformanceModel.train_from_dataframe(
+            df = pd.read_csv(csv_path)
+            performance_model, evaluation = StudentPerformanceModel.train_from_dataframe(
                 df)
-
-            # Guardar métricas de evaluación
+            saved_path = performance_model.save_model(
+                settings.PERFORMANCE_MODEL_PATH)
             logger.info(
-                f"Modelo entrenado - Métricas: MSE={evaluation['mse']:.4f}, R²={evaluation['r2']:.4f}")
+                f"Performance model entrenado y guardado en: {saved_path}")
 
-            # Guardar el modelo entrenado
-            saved_path = model.save_model()
-            logger.info(f"Modelo guardado en: {saved_path}")
+        app.state.models["performance_model"] = performance_model
 
-            # Guardar el modelo en el estado de la app
-            app.state.model = model
+        # Cargar o entrenar modelo de ExamScorePredictModel
+        from app.models.ExamScorePredictModel import ExamScorePredictModel
+        try:
+            logger.info(
+                f"Intentando cargar exam model desde: {settings.EXAM_MODEL_PATH}")
+            exam_model = ExamScorePredictModel.load_from_file(
+                settings.EXAM_MODEL_PATH)
+            logger.info("Exam model cargado exitosamente")
+        except FileNotFoundError:
+            logger.warning(
+                f"Exam model no encontrado en {settings.EXAM_MODEL_PATH}, se entrenará uno nuevo")
+            csv_path = os.path.join(settings.CSV_PATH, 'ExamScore.csv')
+            if not os.path.exists(csv_path):
+                raise FileNotFoundError(
+                    f"No se encontró el archivo de datos: {csv_path}")
+            df = pd.read_csv(csv_path)
+            exam_model, evaluation = ExamScorePredictModel.train_from_dataframe(
+                df)
+            saved_path = exam_model.save_model(settings.EXAM_MODEL_PATH)
+            logger.info(f"Exam model entrenado y guardado en: {saved_path}")
+
+        app.state.models["exam_model"] = exam_model
 
     except Exception as e:
         logger.error(
-            f"Error fatal durante la inicialización de la aplicación: {str(e)}", exc_info=True)
-        # En producción, podrías querer permitir que la app inicie sin modelo
-        # o usar un modelo de fallback básico
+            f"Error fatal durante la inicialización: {str(e)}", exc_info=True)
         raise
 
-    # Todo correcto, ceder el control a la aplicación
     yield
 
-    # Código de limpieza al cerrar la aplicación
     logger.info("Liberando recursos...")
+
 
 # Crear la aplicación FastAPI
 app = FastAPI(
